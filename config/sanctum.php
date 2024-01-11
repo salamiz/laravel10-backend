@@ -64,4 +64,19 @@ return [
         'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Hash Driver
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default hash driver that will be used to hash
+    | access tokens and refresh tokens issued by Sanctum. In most cases, you
+    | will not need to change this value. However, if you would like to use
+    | a different hash driver, you can modify the value below.
+    |
+    */
+
+    'hash' => 'bcrypt',
+
+
 ];
