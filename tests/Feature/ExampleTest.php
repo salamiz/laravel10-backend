@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabase; // Add this line
+
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    use RefreshDatabase; // Uncomment this line
     /**
      * A basic test example.
      */
