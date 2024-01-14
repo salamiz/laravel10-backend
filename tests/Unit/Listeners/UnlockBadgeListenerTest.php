@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Listeners;
 
+use Exception;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Achievement;
@@ -15,7 +16,6 @@ class UnlockBadgeListenerTest extends TestCase
 
     /**
      * Simulates unlocking achievements for a user.
-     *
      * @param User $user The user to simulate achievements for.
      * @param int $count The number of achievements to simulate.
      */
@@ -26,7 +26,6 @@ class UnlockBadgeListenerTest extends TestCase
 
     /**
      * Provides data for testing badge unlocks.
-     *
      * @return array
      */
     public static function badgeDataProvider()
@@ -41,7 +40,6 @@ class UnlockBadgeListenerTest extends TestCase
 
     /**
      * Test that the correct badge is unlocked based on the number of achievements.
-     *
      * @dataProvider badgeDataProvider
      */
     public function testBadgeUnlocking($achievements, $expectedBadge)
@@ -59,7 +57,6 @@ class UnlockBadgeListenerTest extends TestCase
     /**
      * Test that badges are not unlocked if the user has fewer achievements than required,
      * except for the Beginner badge which should always be unlocked.
-     * 
      * @dataProvider badgeDataProvider
      */
     public function testBadgeNotUnlockedWithFewerAchievements($achievements, $expectedBadge)
@@ -75,5 +72,24 @@ class UnlockBadgeListenerTest extends TestCase
         } else {
             $this->assertTrue(true); // Automatically pass the test for the 'Beginner' badge.
         }
+    }
+
+    /**
+     * Tests that an exception is thrown for an invalid badge name.
+     *
+     * This method validates that the UnlockBadgeListener throws an exception when
+     * it encounters a BadgeUnlocked event with a badge name that is not recognized.
+     */
+    /** @test */
+    public function it_throws_exception_for_unknown_badge_name()
+    {
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Unknown badge: Invalid Badge');
+
+        $user = User::factory()->create();
+        $listener = new UnlockBadgeListener();
+
+        // Dispatch the event with an invalid badge name
+        $listener->handle(new BadgeUnlocked('Invalid Badge', $user));
     }
 }
