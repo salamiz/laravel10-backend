@@ -46,6 +46,11 @@ class UnlockBadgeListener
         $badgeName = $event->badgeName;
         $user = $event->user;
 
+        // Check if user exists in the database
+        if (!$user || !User::find($user->id)) {
+            throw new \Exception("User not found in the database");
+        }
+        
         if (isset($this->badgeCheckers[$badgeName])) {
             $checker = $this->badgeCheckers[$badgeName];
             $checker($user);
