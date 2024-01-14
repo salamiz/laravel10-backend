@@ -81,19 +81,27 @@ class UnlockAchievementListener
     }
 
     /**
-     * Checks if the user has watched a specified number of lessons and unlocks the achievement if so.
-     * 
-     * This function counts the number of lessons watched by the user and compares it 
-     * to the provided threshold ($lessonCount). If the user has watched equal to or more 
-     * than the specified number of lessons, the corresponding achievement is unlocked.
-     * 
-     * @param User $user The user for whom to check the achievement.
-     * @param int $lessonCount The number of lessons to check against.
+     * Check and unlock lesson watching achievements for a user.
+     *
+     * This method is responsible for unlocking achievements related to watching lessons.
+     * It first checks if the 'First Lesson Watched' achievement needs to be unlocked.
+     * Then, it iterates through predefined lesson thresholds and unlocks achievements
+     * if the user has watched a number of lessons meeting or exceeding these thresholds.
+     *
+     * @param User $user The user whose achievements are being checked.
+     * @param int $lessonCount The number of lessons recently watched.
      */
     protected function checkLessonsWatched(User $user, $lessonCount): void
     {
-        if ($user->watched()->count() >= $lessonCount) {
-            $this->unlockAchievement($user, "{$lessonCount} Lessons Watched");
+        $this->checkFirstLessonWatched($user); // Always check for the first lesson watched.
+        $watchedCount = $user->watched()->count(); // Count the total number of lessons watched by the user so far.
+
+        // Check for each threshold up to the current count, starting from 5 as 'First Lesson Watched' is already checked.
+        $lessonThresholds = [5, 10, 25, 50];
+        foreach ($lessonThresholds as $threshold) {
+            if ($watchedCount >= $threshold && $lessonCount >= $threshold) {
+                $this->unlockAchievement($user, "{$threshold} Lessons Watched");
+            }
         }
     }
 
@@ -114,19 +122,27 @@ class UnlockAchievementListener
     }
 
     /**
-     * Checks if the user has written a specified number of comments and unlocks the achievement if so.
-     * 
-     * This function counts the number of comments written by the user and compares it 
-     * to the provided threshold ($commentCount). If the user has written equal to or more 
-     * than the specified number of comments, the corresponding achievement is unlocked.
-     * 
-     * @param User $user The user for whom to check the achievement.
-     * @param int $commentCount The number of comments to check against.
+     * Check and unlock comment writing achievements for a user.
+     *
+     * This method is responsible for unlocking achievements related to writing comments.
+     * It first checks if the 'First Comment Written' achievement needs to be unlocked.
+     * Then, it iterates through predefined comment thresholds and unlocks achievements
+     * if the user has written a number of comments meeting or exceeding these thresholds.
+     *
+     * @param User $user The user whose achievements are being checked.
+     * @param int $commentCount The number of comments recently written.
      */
     protected function checkCommentsWritten(User $user, $commentCount): void
     {
-        if ($user->comments()->count() >= $commentCount) {
-            $this->unlockAchievement($user, "{$commentCount} Comments Written");
+        $this->checkFirstCommentWritten($user); // Always check for the first comment written.
+        $writtenCount = $user->comments()->count(); // Count the total number of comments written by the user.
+
+        // Check for each threshold up to the current count, starting from 3 as 'First Comment Written' is already checked.
+        $commentThresholds = [3, 5, 10, 20];
+        foreach ($commentThresholds as $threshold) {
+            if ($writtenCount >= $threshold && $commentCount >= $threshold) {
+                $this->unlockAchievement($user, "{$threshold} Comments Written");
+            }
         }
     }
     

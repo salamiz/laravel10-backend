@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Listeners;
 
+use Exception;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Lesson;
@@ -52,18 +53,22 @@ class UnlockAchievementListenerTest extends TestCase
     }
 
     /**
-     * Asserts that a specific achievement was unlocked for the user.
+     * Asserts that a specific achievement is unlocked a certain number of times.
      *
      * @param User $user The user to check for the achievement.
      * @param string $achievementName The name of the achievement to check.
+     * @param int $expectedCount The expected count of times the achievement should be unlocked.
      */
-    protected function assertAchievementUnlocked(User $user, string $achievementName)
+    protected function assertAchievementUnlocked(User $user, string $achievementName, int $expectedCount = 1)
     {
-        $this->assertTrue(
-            $user->achievements()->where('name', $achievementName)->exists(),
-            "Failed to assert that the achievement '{$achievementName}' was unlocked."
+        $actualCount = $user->achievements()->where('name', $achievementName)->count();
+        $this->assertEquals(
+            $expectedCount,
+            $actualCount,
+            "Failed to assert that the achievement '{$achievementName}' was unlocked exactly {$expectedCount} time(s)."
         );
     }
+
 
     /**
      * Asserts that a specific achievement was not unlocked for the user.
@@ -80,89 +85,132 @@ class UnlockAchievementListenerTest extends TestCase
     }
 
     /**
-     * Tests the unlocking of various achievements.
-     *
-     * This test iterates over a set of predefined achievements, simulating the conditions for each one
-     * and verifying that the UnlockAchievementListener properly unlocks the achievement.
+     * Data provider for lessons watched achievements.
      */
-
-    /** @test */
-    public function it_correctly_handles_all_achievements()
+    public static function lessonsWatchedAchievements(): array
     {
-        // Defines the achievements to test, including the method to simulate them and the count required.
-        $achievements = [
-            // Lessons Watched Achievements
-            'First Lesson Watched' => ['method' => 'simulateWatchingLessons', 'count' => 1],
-            '5 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 5],
-            '10 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 10],
-            '25 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 25],
-            '50 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 50],
-
-            // Comments Written Achievements
-            'First Comment Written' => ['method' => 'simulateWritingComments', 'count' => 1],
-            '3 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 3],
-            '5 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 5],
-            '10 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 10],
-            '20 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 20]
+        return [
+            ['First Lesson Watched', 1],
+            ['5 Lessons Watched', 5],
+            ['10 Lessons Watched', 10],
+            ['25 Lessons Watched', 25],
+            ['50 Lessons Watched', 50],
         ];
+    }
 
-        foreach ($achievements as $name => $data) {
-            $user = User::factory()->create();
-            // Calls the simulation method based on the achievement definition.
-            $this->{$data['method']}($user, $data['count']);
+    /**
+     * Data provider for comments written achievements.
+     */
+    public static function commentsWrittenAchievements(): array
+    {
+        return [
+            ['First Comment Written', 1],
+            ['3 Comments Written', 3],
+            ['5 Comments Written', 5],
+            ['10 Comments Written', 10],
+            ['20 Comments Written', 20],
+        ];
+    }
 
-            $listener = new UnlockAchievementListener();
-            // Dispatches the AchievementUnlocked event and handles it with the listener.
-            $listener->handle(new AchievementUnlocked($name, $user));
+    /**
+     * @test
+     * @dataProvider lessonsWatchedAchievements
+     */
+    public function it_unlocks_lessons_watched_achievements_correctly($achievement, $threshold)
+    {
+        $user = User::factory()->create();
+        $listener = new UnlockAchievementListener();
 
-            $user->refresh();// Refreshes the user model to get updated data.
-            // Asserts that the achievement was correctly unlocked.
-            $this->assertAchievementUnlocked($user, $name);
+        // Test just below the threshold
+        $this->simulateWatchingLessons($user, $threshold - 1);
+        $listener->handle(new AchievementUnlocked($achievement, $user));
+        $this->assertAchievementNotUnlocked($user, $achievement);
+
+        // Test at the threshold
+        $this->simulateWatchingLessons($user, $threshold); // This makes total lessons equal to the threshold
+        $listener->handle(new AchievementUnlocked($achievement, $user));
+        $this->assertAchievementUnlocked($user, $achievement);
+
+        // Test just above the threshold
+        $this->simulateWatchingLessons($user, $threshold + 1); // This makes total lessons one more than the threshold
+        $listener->handle(new AchievementUnlocked($achievement, $user));
+        $this->assertAchievementUnlocked($user, $achievement, 1); // Ensure it's still unlocked only once
+    }
+
+    /**
+     * @test
+     * @dataProvider commentsWrittenAchievements
+     */
+    public function it_unlocks_comments_written_achievements_correctly($achievement, $threshold)
+    {
+        $user = User::factory()->create();
+        $listener = new UnlockAchievementListener();
+
+        // Test just below the threshold
+        $this->simulateWritingComments($user, $threshold - 1);
+        $listener->handle(new AchievementUnlocked($achievement, $user));
+        $this->assertAchievementNotUnlocked($user, $achievement); // Just below the threshold: Should not unlock the achievement.
+
+        // Test at the threshold
+        $this->simulateWritingComments($user, $threshold); // This makes total comments equal to the threshold
+        $listener->handle(new AchievementUnlocked($achievement, $user));
+        $this->assertAchievementUnlocked($user, $achievement);
+
+        // Test just above the threshold
+        $this->simulateWritingComments($user, $threshold + 1); // This makes total comments one more than the threshold
+        $listener->handle(new AchievementUnlocked($achievement, $user));
+        $this->assertAchievementUnlocked($user, $achievement, 1); // Ensure it's still unlocked only once
+    }
+
+    /**
+     * Tests that achievements are cumulatively stored without being overwritten.
+     *
+     * This test checks if the UnlockAchievementListener correctly accumulates
+     * achievements for a user without overwriting existing ones. 
+     */
+    /** @test */
+    public function achievements_are_stored_cumulatively_and_not_overwritten()
+    {
+        $user = User::factory()->create();
+        $this->simulateWatchingLessons($user, 50);
+        $this->simulateWritingComments($user, 20);
+
+        $listener = new UnlockAchievementListener();
+        $listener->handle(new AchievementUnlocked('50 Lessons Watched', $user));
+        $listener->handle(new AchievementUnlocked('20 Comments Written', $user));
+
+        $user->refresh();
+        $achievements = $user->achievements->pluck('name')->toArray();
+
+        // Define expected achievements
+        $expectedAchievements = [
+            'First Lesson Watched', '5 Lessons Watched', '10 Lessons Watched', 
+            '25 Lessons Watched', '50 Lessons Watched', 'First Comment Written', 
+            '3 Comments Written', '5 Comments Written', '10 Comments Written', 
+            '20 Comments Written'
+        ];
+        foreach ($expectedAchievements as $achievement) {
+            $this->assertContains($achievement, $achievements, "Failed to assert that the achievement '{$achievement}' was unlocked.");
         }
     }
 
-
     /**
-     * Tests that achievements are not unlocked under non-qualifying conditions.
+     * Tests that an exception is thrown for an invalid achievement name.
      *
-     * This test iterates over a set of predefined achievements and simulates conditions
-     * that are just shy of what's required to unlock each achievement. It then asserts
-     * that these achievements are not unlocked under these non-qualifying conditions.
+     * This test ensures that the UnlockAchievementListener throws an exception when
+     * handling an AchievementUnlocked event with an unrecognized achievement name. 
      */
     /** @test */
-    public function it_does_not_unlock_achievements_for_non_qualifying_conditions()
+    public function it_throws_exception_for_unknown_achievement_name()
     {
-        // Define each achievement along with its non-qualifying condition.
-        $nonQualifyingAchievements = [
-            // For lessons watched and Comments Written achievements, simulate one less than required
-            'First Lesson Watched' => ['method' => 'simulateWatchingLessons', 'count' => 0],
-            '5 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 4],
-            '10 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 9],
-            '25 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 24],
-            '50 Lessons Watched' => ['method' => 'simulateWatchingLessons', 'count' => 49],
-            'First Comment Written' => ['method' => 'simulateWritingComments', 'count' => 0],
-            '3 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 2],
-            '5 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 4],
-            '10 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 9],
-            '20 Comments Written' => ['method' => 'simulateWritingComments', 'count' => 19]
-        ];
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Unknown achievement: Invalid Achievement');
 
-        // Iterate over each non-qualifying achievement condition.
-        foreach ($nonQualifyingAchievements as $name => $data) {
-            $user = User::factory()->create(); // Create a new user for each test iteration.
+        $user = User::factory()->create();
+        $listener = new UnlockAchievementListener();
 
-            // Simulate the non-qualifying condition.
-            $this->{$data['method']}($user, $data['count']);
-
-            $listener = new UnlockAchievementListener();
-            // Dispatch and handle the AchievementUnlocked event.
-            $listener->handle(new AchievementUnlocked($name, $user));
-
-            $user->refresh(); // Refresh the user to get the latest data from the database.
-
-            // Assert that the achievement was not unlocked.
-            $this->assertAchievementNotUnlocked($user, $name);
-        }
+        // Dispatch the event with an invalid achievement name
+        $listener->handle(new AchievementUnlocked('Invalid Achievement', $user));
     }
 
 }
