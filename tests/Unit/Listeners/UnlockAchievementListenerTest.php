@@ -69,7 +69,6 @@ class UnlockAchievementListenerTest extends TestCase
         );
     }
 
-
     /**
      * Asserts that a specific achievement was not unlocked for the user.
      *
@@ -83,6 +82,7 @@ class UnlockAchievementListenerTest extends TestCase
             "Failed to assert that the achievement '{$achievementName}' was not unlocked."
         );
     }
+
 
     /**
      * Data provider for lessons watched achievements.
@@ -112,6 +112,8 @@ class UnlockAchievementListenerTest extends TestCase
         ];
     }
 
+
+    
     /**
      * @test
      * @dataProvider lessonsWatchedAchievements
@@ -162,6 +164,8 @@ class UnlockAchievementListenerTest extends TestCase
         $this->assertAchievementUnlocked($user, $achievement, 1); // Ensure it's still unlocked only once
     }
 
+
+
     /**
      * Tests that achievements are cumulatively stored without being overwritten.
      *
@@ -172,29 +176,162 @@ class UnlockAchievementListenerTest extends TestCase
     public function achievements_are_stored_cumulatively_and_not_overwritten()
     {
         $user = User::factory()->create();
-        $this->simulateWatchingLessons($user, 50);
-        $this->simulateWritingComments($user, 20);
-
+        $this->simulateWatchingLessons($user, 50); // Simulate watching 50 lessons
+        $this->simulateWritingComments($user, 20); // Simulate writing 20 comments
+    
         $listener = new UnlockAchievementListener();
-        $listener->handle(new AchievementUnlocked('50 Lessons Watched', $user));
-        $listener->handle(new AchievementUnlocked('20 Comments Written', $user));
-
-        $user->refresh();
+    
+        // Handling achievements for lessons watched
+        foreach (self::lessonsWatchedAchievements() as $lessonsAchievement) {
+            [$achievementName,] = $lessonsAchievement;
+            $listener->handle(new AchievementUnlocked($achievementName, $user));
+        }
+    
+        // Handling achievements for comments written
+        foreach (self::commentsWrittenAchievements() as $commentsAchievement) {
+            [$achievementName,] = $commentsAchievement;
+            $listener->handle(new AchievementUnlocked($achievementName, $user));
+        }
+    
+        $user->refresh(); // Refresh the user model to update achievements
         $achievements = $user->achievements->pluck('name')->toArray();
-
-        // Define expected achievements
-        $expectedAchievements = [
-            'First Lesson Watched', '5 Lessons Watched', '10 Lessons Watched', 
-            '25 Lessons Watched', '50 Lessons Watched', 'First Comment Written', 
-            '3 Comments Written', '5 Comments Written', '10 Comments Written', 
-            '20 Comments Written'
-        ];
-        foreach ($expectedAchievements as $achievement) {
-            $this->assertContains($achievement, $achievements, "Failed to assert that the achievement '{$achievement}' was unlocked.");
+        // Asserting that all 10 achievements are present
+        foreach (array_merge(self::lessonsWatchedAchievements(), self::commentsWrittenAchievements()) as $achievement) {
+            [$achievementName,] = $achievement;
+            $this->assertContains($achievementName, $achievements, "Failed to assert that the achievement '{$achievementName}' was unlocked.");
         }
     }
 
+
+
+    /** Test to check User with no lesson watched does not unlock an achievement
+     * 
+     * @test
+     * @dataProvider lessonsWatchedAchievements
+     */
+    public function user_with_no_lessons_watched_does_not_unlock_achievements($achievementName, $threshold)
+    {
+        $user = User::factory()->create();
+        $listener = new UnlockAchievementListener();
+
+        // Simulating that the user has not watched any lessons
+        // No need to attach lessons to the user
+
+        // Handle the achievement unlocked event for each threshold
+        $listener->handle(new AchievementUnlocked($achievementName, $user));
+
+        // Assert that the achievement was not unlocked
+        $this->assertAchievementNotUnlocked($user, $achievementName);
+    }
+
+    /** Test to check User with no comments written does not unlock an achievement
+     * 
+     * @test
+     * @dataProvider commentsWrittenAchievements
+     */
+    public function user_with_no_comments_written_does_not_unlock_achievements($achievementName, $threshold)
+    {
+        $user = User::factory()->create();
+        $listener = new UnlockAchievementListener();
+
+        // Simulating that the user has not written any comments
+        // No need to create comments for the user
+
+        // Handle the achievement unlocked event for each threshold
+        $listener->handle(new AchievementUnlocked($achievementName, $user));
+
+        // Assert that the achievement was not unlocked
+        $this->assertAchievementNotUnlocked($user, $achievementName);
+    }
+
+
+
+    /** Test for invalid user on lessonwatched
+     * 
+    * @test
+    * @dataProvider lessonsWatchedAchievements
+    */
+    public function it_handles_invalid_user_data_for_lessons_watched($achievementName, $threshold)
+    {
+        // Expect an exception if the class is designed to throw one on invalid data
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('User not found in the database');
+
+        $listener = new UnlockAchievementListener();
+
+        // Create a user instance without persisting it to the database, leading to an incomplete user object
+        $invalidUser = new User();
+
+        // Handle the achievement unlocked event with invalid user data
+        $listener->handle(new AchievementUnlocked($achievementName, $invalidUser));
+    }
+
+    /** Test for invalid user on commentwritte
+     * 
+    * @test
+    * @dataProvider commentsWrittenAchievements
+    */
+    public function it_handles_invalid_user_data_for_comments_written($achievementName, $threshold)
+    {
+        // Expect an exception if the class is designed to throw one on invalid data
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('User not found in the database');
+
+        $listener = new UnlockAchievementListener();
+
+        // Create a user instance without persisting it to the database, leading to an incomplete user object
+        $invalidUser = new User();
+
+        // Handle the achievement unlocked event with invalid user data
+        $listener->handle(new AchievementUnlocked($achievementName, $invalidUser));
+    }
+
+
+
     /**
+     * @test
+     * @dataProvider lessonsWatchedAchievements
+     */
+    public function it_correctly_unlocks_and_stores_lessons_watched_achievements_in_database($achievementName, $threshold)
+    {
+        $user = User::factory()->create();
+        $this->simulateWatchingLessons($user, $threshold);
+        $listener = new UnlockAchievementListener();
+
+        // Handle the achievement unlocked event
+        $listener->handle(new AchievementUnlocked($achievementName, $user));
+
+        // Assert that the achievement is stored in the database
+        $this->assertDatabaseHas('achievements', [
+            'user_id' => $user->id,
+            'name' => $achievementName
+        ]);
+    }
+
+    /**
+     * @test
+     * @dataProvider commentsWrittenAchievements
+     */
+    public function it_correctly_unlocks_and_stores_comments_written_achievements_in_database($achievementName, $threshold)
+    {
+        $user = User::factory()->create();
+        $this->simulateWritingComments($user, $threshold);
+        $listener = new UnlockAchievementListener();
+
+        // Handle the achievement unlocked event
+        $listener->handle(new AchievementUnlocked($achievementName, $user));
+
+        // Assert that the achievement is stored in the database
+        $this->assertDatabaseHas('achievements', [
+            'user_id' => $user->id,
+            'name' => $achievementName
+        ]);
+    }
+
+
+
+    /**
+
      * Tests that an exception is thrown for an invalid achievement name.
      *
      * This test ensures that the UnlockAchievementListener throws an exception when

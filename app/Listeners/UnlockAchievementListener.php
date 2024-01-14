@@ -54,6 +54,11 @@ class UnlockAchievementListener
         $achievementName = $event->achievementName;
         $user = $event->user;
 
+        // Check if user exists in the database
+        if (!$user || !User::find($user->id)) {
+            throw new \Exception("User not found in the database");
+        }
+        
         if (isset($this->achievementCheckers[$achievementName])) {
             $checker = $this->achievementCheckers[$achievementName];
             $checker($user);
@@ -62,6 +67,33 @@ class UnlockAchievementListener
             throw new \Exception("Unknown achievement: {$achievementName}");
         }
     }
+
+    // Return thresholds for 'Lessons Watched' achievements
+    protected function getLessonWatchedThresholds(): array
+    {
+        return $this->extractThresholds('Lessons Watched');
+    }
+    
+    // Return thresholds for 'Comments Written' achievements
+    protected function getCommentWrittenThresholds(): array
+    {
+        return $this->extractThresholds('Comments Written');
+    }
+    
+    // Extract numeric thresholds from the keys of the $achievementCheckers array for a specific type of achievement
+    protected function extractThresholds($type): array
+    {
+        return array_map(function ($key) {
+            // Remove all non-numeric characters from the key and convert it to an integer
+            // This extracts the numeric threshold (e.g., '5' from '5 Lessons Watched')
+            return intval(preg_replace('/[^0-9]/', '', $key));
+        }, array_filter(array_keys($this->achievementCheckers), function ($key) use ($type) {
+            // Filter the keys of the $achievementCheckers array
+            // Include only those keys that contain the specified type (e.g., 'Lessons Watched')
+            return strpos($key, $type) !== false;
+        }));
+    }
+    
 
     /**
      * Checks if the user has watched their first lesson and unlocks the achievement if so.
@@ -97,8 +129,7 @@ class UnlockAchievementListener
         $watchedCount = $user->watched()->count(); // Count the total number of lessons watched by the user so far.
 
         // Check for each threshold up to the current count, starting from 5 as 'First Lesson Watched' is already checked.
-        $lessonThresholds = [5, 10, 25, 50];
-        foreach ($lessonThresholds as $threshold) {
+        foreach ($this->getLessonWatchedThresholds() as $threshold) {
             if ($watchedCount >= $threshold && $lessonCount >= $threshold) {
                 $this->unlockAchievement($user, "{$threshold} Lessons Watched");
             }
@@ -138,8 +169,7 @@ class UnlockAchievementListener
         $writtenCount = $user->comments()->count(); // Count the total number of comments written by the user.
 
         // Check for each threshold up to the current count, starting from 3 as 'First Comment Written' is already checked.
-        $commentThresholds = [3, 5, 10, 20];
-        foreach ($commentThresholds as $threshold) {
+        foreach ($this->getCommentWrittenThresholds() as $threshold) {
             if ($writtenCount >= $threshold && $commentCount >= $threshold) {
                 $this->unlockAchievement($user, "{$threshold} Comments Written");
             }
