@@ -74,7 +74,7 @@ class User extends Authenticatable
         */
     public function achievements()
     {
-        return $this->hasMany(Achievement::class);
+        return $this->belongsToMany(Achievement::class)->withTimestamps();
     }
 }
 

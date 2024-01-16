@@ -26,7 +26,6 @@ class AchievementFactory extends Factory
         ];
 
         return [
-            'user_id' => User::factory(),
             'name' => $this->faker->randomElement($achievementNames),
         ];
     }
