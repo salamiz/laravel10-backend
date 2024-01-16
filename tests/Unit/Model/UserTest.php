@@ -51,9 +51,12 @@ class UserTest extends TestCase
     /** @test */
     public function it_has_achievements()
     {
-        // Create a user and an achievement related to that user.
+        // Create a user and an achievement, then attach the achievement to the user.
         $user = User::factory()->create();
-        $achievement = Achievement::factory()->create(['user_id' => $user->id]);
+        $achievement = Achievement::factory()->create();
+
+        // Attach the achievement to the user.
+        $user->achievements()->attach($achievement);
 
         // Assert that the achievement is correctly associated with the user.
         $this->assertTrue($user->achievements->contains($achievement));

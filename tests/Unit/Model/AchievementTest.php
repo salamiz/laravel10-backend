@@ -4,6 +4,7 @@ namespace Tests\Unit\Models;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Achievement;
+use App\Services\AchievementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class AchievementTest extends TestCase
@@ -11,32 +12,40 @@ class AchievementTest extends TestCase
     use RefreshDatabase;
 
     /** @test */
-    public function it_has_fillable_attributes()
+    public function it_checks_achievement_names_from_service()
     {
-        // Create a user and an achievement related to that user.
-        $user = User::factory()->create();
-        $achievementData = [
-            'user_id' => $user->id,
-            'name' => 'Sample Achievement',
-        ];
+        // Retrieve achievements from the service
+        $achievementGroups = AchievementService::getAchievements();
 
-        // Create a new Achievement instance with the sample data.
-        $achievement = Achievement::create($achievementData);
+        foreach ($achievementGroups as $group) {
+            foreach ($group as $achievementName) {
+                // Create a new Achievement instance with the name from the service
+                $achievement = Achievement::create(['name' => $achievementName]);
 
-        // Assert that the achievement's attributes were correctly saved.
-        $this->assertEquals($achievementData['user_id'], $achievement->user_id);
-        $this->assertEquals($achievementData['name'], $achievement->name);
+                // Assert that the achievement's name matches the one provided by the service
+                $this->assertEquals($achievementName, $achievement->name);
+            }
+        }
     }
 
     /** @test */
-    public function it_belongs_to_a_user()
+    public function it_can_belong_to_many_users()
     {
-        // Create a user and an achievement related to that user.
+        // Create a user
         $user = User::factory()->create();
-        $achievement = Achievement::factory()->create(['user_id' => $user->id]);
 
-        // Assert that the achievement is correctly associated with the user.
-        $this->assertInstanceOf(User::class, $achievement->user);
-        $this->assertEquals($user->id, $achievement->user->id);
+        // Retrieve achievements from the service
+        $achievementGroups = AchievementService::getAchievements();
+        $firstGroupName = array_key_first($achievementGroups);
+        $firstAchievementName = $achievementGroups[$firstGroupName][0];
+
+        // Create an achievement instance with the first name from the service
+        $achievement = Achievement::create(['name' => $firstAchievementName]);
+
+        // Attach the achievement to the user
+        $user->achievements()->attach($achievement);
+
+        // Assert that the achievement is correctly associated with the user
+        $this->assertTrue($user->achievements->contains($achievement));
     }
 }
