@@ -7,8 +7,6 @@ namespace App\Listeners;
 use App\Events\AchievementUnlocked;
 use App\Models\User;
 use App\Services\AchievementService;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
 // Listener class for unlocking achievements
 class UnlockAchievementListener

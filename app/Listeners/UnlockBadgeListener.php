@@ -5,8 +5,7 @@ namespace App\Listeners;
 use App\Events\BadgeUnlocked;
 use App\Models\User;
 use App\Services\BadgeService;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
+
 
 /**
  * Class UnlockBadgeListener

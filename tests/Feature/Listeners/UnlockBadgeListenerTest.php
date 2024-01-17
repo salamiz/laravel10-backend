@@ -128,7 +128,7 @@ class UnlockBadgeListenerTest extends TestCase
      * Test that the system correctly handles multiple badge unlocks in sequence.
      * @dataProvider badgeDataProvider
      */
-    public function testSequentialBadgeUnlocking($achievements, $expectedBadge)
+    public function testSequentialBadgeUnlocking()
     {
         $user = User::factory()->create();
         $listener = new UnlockBadgeListener();
