@@ -14,8 +14,8 @@ class AchievementService
 
     public static function calculateNextAvailableAchievements(array $unlockedAchievements)
     {
-        // Logic to calculate next available achievements based on current unlocked achievements
-        $allAchievements = AchievementService::getAchievements();
+        $allAchievements = self::getAchievements(); // Add this line to call the static method
+
         $nextAvailableAchievements = [];
 
         // Users with no achievements

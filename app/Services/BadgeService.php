@@ -19,7 +19,7 @@ class BadgeService
     public static function calculateBadgeProgress(User $user)
     {
         $achievementCount = $user->achievements()->count();
-        $badges = BadgeService::getBadges();
+        $badges = self::getBadges();
         $currentBadge = 'Beginner'; // Default badge
         $nextBadge = '';
         $remainingToUnlockNextBadge = 0;
