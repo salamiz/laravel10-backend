@@ -11,4 +11,31 @@ class AchievementService
             'Comments Written' => ['First Comment Written', '3 Comments Written', '5 Comments Written', '10 Comments Written', '20 Comments Written'],
         ];
     }
+
+    public static function calculateNextAvailableAchievements(array $unlockedAchievements)
+    {
+        // Logic to calculate next available achievements based on current unlocked achievements
+        $allAchievements = AchievementService::getAchievements();
+        $nextAvailableAchievements = [];
+
+        // Users with no achievements
+        if (empty($unlockedAchievements)) {
+            foreach ($allAchievements as $achievements) {
+                $nextAvailableAchievements[] = reset($achievements); // Get the first achievement from each category
+            }
+            return $nextAvailableAchievements;
+        }
+
+        // Users with some achievements
+        foreach ($allAchievements as $category => $achievements) {
+            foreach ($achievements as $achievement) {
+                if (!in_array($achievement, $unlockedAchievements)) {
+                    $nextAvailableAchievements[] = $achievement;
+                    break;
+                }
+            }
+        }
+
+        return $nextAvailableAchievements;
+    }
 }
